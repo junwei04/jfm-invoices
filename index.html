@@ -214,6 +214,17 @@ nav.tabbar .ic{font-size:18px;}
       </div>
       <label>Deposit Paid ($, optional)</label>
       <input type="number" id="docDeposit" min="0" step="0.01" value="0" onchange="updateGrandTotal()">
+      <div style="display:flex;gap:6px;margin-top:6px;">
+        <button type="button" onclick="applyDepositPct(50)" style="flex:1;padding:8px 4px;border-radius:8px;border:1.5px solid var(--line);background:#fafaf8;font-size:12px;font-weight:600;color:var(--ink-soft);">Set 50% paid</button>
+        <button type="button" onclick="applyDepositPct(100)" style="flex:1;padding:8px 4px;border-radius:8px;border:1.5px solid var(--line);background:#fafaf8;font-size:12px;font-weight:600;color:var(--ink-soft);">Set full paid</button>
+      </div>
+      <label style="margin-top:10px;">Deposit of 50% Pending</label>
+      <select id="docPendingDepositPct">
+        <option value="0">No pending deposit</option>
+        <option value="50">50% deposit is pending</option>
+        <option value="30">30% deposit is pending</option>
+        <option value="100">Full payment pending upfront</option>
+      </select>
       <div class="totals grand">
         <span>Amount Due</span>
         <span id="grandTotal">$0.00</span>
@@ -346,7 +357,7 @@ const LS = {
 };
 
 const DEFAULT_BUSINESS = {
-  displayName: "J Facilities Mgmt",
+  displayName: "J Facilities Management",
   name: "J FACILITIES MANAGEMENT PTE. LTD.",
   uen: "202553962R",
   phone: "89233871",
@@ -366,7 +377,8 @@ const INVOICE_TERMS = [
   "J Facilities Management Pte. Ltd. shall not be liable for any pre-existing defects, damage caused by third parties, or work outside the agreed scope.",
   "Goods and materials supplied remain the property of J Facilities Management Pte. Ltd. until full payment is received.",
   "This document constitutes a valid tax invoice where applicable. UEN 202553962R.",
-  "Any disputes arising from this agreement shall be subject to the laws and jurisdiction of the Republic of Singapore."
+  "Any disputes arising from this agreement shall be subject to the laws and jurisdiction of the Republic of Singapore.",
+  "Full payment is required upon completion of works and prior to handover of any deliverables or keys."
 ];
 
 const DEFAULT_SERVICES = [
@@ -513,49 +525,55 @@ function renderLineItems(){
     const div = document.createElement('div');
     div.className = 'lineitem';
     const svc = services();
-    let options = '<option value="">Custom item...</option>';
-    svc.forEach(s => {
-      options += `<option value="${s.name}" data-price="${s.price}" ${item.name===s.name?'selected':''}>${s.name}</option>`;
-    });
+    const dlId = 'svcDL' + idx;
+    const datalistOpts = svc.map(s => `<option value="${s.name.replace(/"/g,'&quot;')}"></option>`).join('');
     div.innerHTML = `
       <button class="remove" onclick="removeLineItem(${idx})">&times;</button>
       <label>Service</label>
-      <select onchange="onServiceSelect(${idx}, this)">${options}</select>
-      <label>Description</label>
-      <input value="${item.desc.replace(/"/g,'&quot;')}" onchange="updateLineItem(${idx}, 'desc', this.value)" placeholder="Description shown on PDF">
+      <input list="${dlId}" value="${item.name.replace(/"/g,'&quot;')}" placeholder="Type or pick a service…"
+        oninput="onServiceInput(${idx},this.value)"
+        onchange="onServiceInput(${idx},this.value)">
+      <datalist id="${dlId}">${datalistOpts}</datalist>
+      <label>Description (optional)</label>
+      <input value="${item.desc.replace(/"/g,'&quot;')}" placeholder="Details shown below the service on PDF"
+        oninput="lineItems[${idx}].desc=this.value">
       <div class="li-grid">
         <div>
           <label>Qty</label>
-          <input type="number" min="0" step="1" value="${item.qty}" onchange="updateLineItem(${idx}, 'qty', this.value)">
+          <input type="number" min="0" step="1" value="${item.qty}" onchange="updateLineItem(${idx},'qty',this.value)">
         </div>
         <div>
           <label>Unit Price ($)</label>
-          <input type="number" min="0" step="0.01" value="${item.price}" onchange="updateLineItem(${idx}, 'price', this.value)">
+          <input type="number" min="0" step="0.01" value="${item.price}" data-liidx="${idx}" onchange="updateLineItem(${idx},'price',this.value)">
         </div>
       </div>
-      <div class="li-amount">Amount: $${(item.qty*item.price).toFixed(2)}</div>
+      <div class="li-amount" id="liAmt${idx}">Amount: $${(item.qty*item.price).toFixed(2)}</div>
     `;
     wrap.appendChild(div);
   });
   updateGrandTotal();
 }
 
-function onServiceSelect(idx, sel){
-  const opt = sel.options[sel.selectedIndex];
-  if(opt.value){
-    lineItems[idx].name = opt.value;
-    lineItems[idx].desc = opt.value;
-    lineItems[idx].price = parseFloat(opt.dataset.price) || 0;
-  } else {
-    lineItems[idx].name = '';
+function onServiceInput(idx, val){
+  lineItems[idx].name = val;
+  const match = services().find(s => s.name === val);
+  if(match){
+    if(match.price > 0){ lineItems[idx].price = match.price; }
+    // Refresh just this item's price input + amount without re-rendering all
+    const priceInputs = document.querySelectorAll('[data-liidx="'+idx+'"]');
+    if(priceInputs[0]) priceInputs[0].value = lineItems[idx].price;
+    const amtEl = document.getElementById('liAmt'+idx);
+    if(amtEl) amtEl.textContent = 'Amount: $'+(lineItems[idx].qty*lineItems[idx].price).toFixed(2);
+    updateGrandTotal();
   }
-  renderLineItems();
 }
 
 function updateLineItem(idx, field, val){
   if(field==='qty' || field==='price') val = parseFloat(val) || 0;
   lineItems[idx][field] = val;
-  renderLineItems();
+  const amtEl = document.getElementById('liAmt'+idx);
+  if(amtEl) amtEl.textContent = 'Amount: $'+(lineItems[idx].qty*lineItems[idx].price).toFixed(2);
+  updateGrandTotal();
 }
 
 function addLineItem(){
@@ -597,8 +615,16 @@ function resetNewForm(){
   document.getElementById('docDueDate').value = todayStr();
   document.getElementById('docDiscount').value = 0;
   document.getElementById('docDeposit').value = 0;
+  document.getElementById('docPendingDepositPct').value = '0';
   setDocType('quote');
   renderLineItems();
+}
+
+function applyDepositPct(pct){
+  const t = computeTotals();
+  const amt = parseFloat((t.total * pct / 100).toFixed(2));
+  document.getElementById('docDeposit').value = amt;
+  updateGrandTotal();
 }
 
 /* ---------------- save ---------------- */
@@ -914,17 +940,36 @@ function buildPdfDoc(record){
   pdf.line(left, y, right, y);
   y += 18;
 
-  pdf.setFont(bodyFont(),'normal');
-  pdf.setFontSize(10);
-  pdf.setTextColor(...INK);
   record.items.forEach((item) => {
-    const desc = item.desc || item.name || '-';
-    const descLines = pdf.splitTextToSize(desc, 300);
-    pdf.text(descLines, left, y);
+    const itemName = item.name || item.desc || '-';
+    const itemDesc = (item.desc && item.desc.trim() && item.desc.trim() !== itemName.trim()) ? item.desc.trim() : '';
+
+    // Service name — bold
+    pdf.setFont(bodyFont(),'bold');
+    pdf.setFontSize(10);
+    pdf.setTextColor(...INK);
+    const nameLines = pdf.splitTextToSize(itemName, 300);
+    pdf.text(nameLines, left, y);
+
+    // Price / Qty / Total aligned to first line
+    pdf.setFont(bodyFont(),'normal');
     pdf.text('$'+item.price.toFixed(2), left+330, y, {align:'right'});
     pdf.text(String(item.qty), left+390, y, {align:'right'});
     pdf.text('$'+(item.qty*item.price).toFixed(2), right, y, {align:'right'});
-    y += Math.max(descLines.length,1)*14 + 6;
+
+    let rowH = nameLines.length * 14;
+
+    // Description — regular, muted, below the name
+    if(itemDesc){
+      pdf.setFont(bodyFont(),'normal');
+      pdf.setFontSize(9);
+      pdf.setTextColor(...MUTED);
+      const dLines = pdf.splitTextToSize(itemDesc, 300);
+      pdf.text(dLines, left, y + rowH);
+      rowH += dLines.length * 12;
+    }
+
+    y += rowH + 6;
   });
 
   y += 6;
@@ -987,8 +1032,22 @@ function buildPdfDoc(record){
   } else if(record.type==='invoice' && amountDue <= 0){
     pdf.text('Paid in full — no balance outstanding.', left, y);
   }
+  if(record.pendingDepositPct > 0 && amountDue > 0){
+    const pendingAmt = (totalAfterDiscount * record.pendingDepositPct / 100).toFixed(2);
+    const pendingLabel = record.pendingDepositPct === 100
+      ? 'Full payment of $'+pendingAmt+' is required prior to commencement of works.'
+      : 'A deposit of '+record.pendingDepositPct+'% ($'+pendingAmt+') is required to confirm this booking.';
+    y += 14;
+    pdf.setFont(bodyFont(),'bold');
+    pdf.setFontSize(9.5);
+    pdf.setTextColor(...NAVY);
+    pdf.text(pendingLabel, left, y);
+  }
   if(record.notes){
     y += 14;
+    pdf.setFont(bodyFont(),'normal');
+    pdf.setFontSize(9.5);
+    pdf.setTextColor(...INK);
     const noteLines = pdf.splitTextToSize(record.notes, width-150);
     pdf.text(noteLines, left, y);
   }
@@ -1094,7 +1153,7 @@ function buildPdfDoc(record){
 }
 
 function getCurrentRecordFromForm(){
-  const cleanItems = lineItems.filter(i => (i.desc && i.desc.trim()) || i.qty*i.price>0);
+  const cleanItems = lineItems.filter(i => (i.name && i.name.trim()) || (i.desc && i.desc.trim()) || i.qty*i.price>0);
   const t = computeTotals();
   return {
     id: editingId || 'preview',
@@ -1110,6 +1169,7 @@ function getCurrentRecordFromForm(){
     },
     items: cleanItems,
     notes: document.getElementById('docNotes').value.trim(),
+    pendingDepositPct: parseInt(document.getElementById('docPendingDepositPct').value) || 0,
     subtotal: t.subtotal,
     discount: t.discount,
     deposit: t.deposit,
@@ -1255,6 +1315,7 @@ function loadDocument(id){
   document.getElementById('docNotes').value = d.notes;
   document.getElementById('docDiscount').value = d.discount || 0;
   document.getElementById('docDeposit').value = d.deposit || 0;
+  document.getElementById('docPendingDepositPct').value = String(d.pendingDepositPct || 0);
   lineItems = JSON.parse(JSON.stringify(d.items));
   renderLineItems();
   showScreen('new');
