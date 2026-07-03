@@ -387,12 +387,12 @@ const DEFAULT_SERVICES = [
   {name:"Handyman Services", price:0}
 ];
 
-function business(){ return LS.get('biz_info', DEFAULT_BUSINESS); }
-function services(){ return LS.get('service_list', DEFAULT_SERVICES); }
-function docs(){ return LS.get('documents', []); }
-function saveDocs(d){ LS.set('documents', d); }
-function numbering(){ return LS.get('numbering', {quote:1, invoice:1}); }
-function saveNumberingRaw(n){ LS.set('numbering', n); }
+function business(){ return LS.get('jfm_biz_info', DEFAULT_BUSINESS); }
+function services(){ return LS.get('jfm_service_list', DEFAULT_SERVICES); }
+function docs(){ return LS.get('jfm_documents', []); }
+function saveDocs(d){ LS.set('jfm_documents', d); }
+function numbering(){ return LS.get('jfm_numbering', {quote:1, invoice:1}); }
+function saveNumberingRaw(n){ LS.set('jfm_numbering', n); }
 
 /* ---------------- state ---------------- */
 let currentType = 'quote';
@@ -405,7 +405,7 @@ function pad(n){ return String(n).padStart(4,'0'); }
 
 /* ---------------- Google Calendar booking import (via private Apps Script proxy, no OAuth) ---------------- */
 /* Proxy URL/key are entered by you in Settings and stored only in this browser's local storage — never committed to source. */
-function gcalConfig(){ return LS.get('gcal_config', null); }
+function gcalConfig(){ return LS.get('jfm_gcal_config', null); }
 
 function openBookingImport(){
   const cfg = gcalConfig();
@@ -1298,7 +1298,7 @@ function loadBusinessInfoForm(){
   document.getElementById('bizAddress').value = b.address || '';
 }
 function saveBusinessInfo(){
-  LS.set('biz_info', {
+  LS.set('jfm_biz_info', {
     displayName: document.getElementById('bizDisplayName').value.trim(),
     name: document.getElementById('bizName').value.trim(),
     uen: document.getElementById('bizUEN').value.trim(),
@@ -1308,7 +1308,7 @@ function saveBusinessInfo(){
   });
   toast('Business info saved');
 }
-function bankInfo(){ return LS.get('bank_info', {name:'', acctName:'J FACILITIES MANAGEMENT PTE. LTD.', acctNo:''}); }
+function bankInfo(){ return LS.get('jfm_bank_info', {name:'', acctName:'J FACILITIES MANAGEMENT PTE. LTD.', acctNo:''}); }
 function loadBankInfoForm(){
   const b = bankInfo();
   document.getElementById('bizBankName').value = b.name || '';
@@ -1316,7 +1316,7 @@ function loadBankInfoForm(){
   document.getElementById('bizBankAcctNo').value = b.acctNo || '';
 }
 function saveBankInfo(){
-  LS.set('bank_info', {
+  LS.set('jfm_bank_info', {
     name: document.getElementById('bizBankName').value.trim(),
     acctName: document.getElementById('bizBankAcctName').value.trim(),
     acctNo: document.getElementById('bizBankAcctNo').value.trim()
@@ -1345,17 +1345,17 @@ function updateServiceField(idx, field, val){
 function addServiceRow(){
   if(!_editingServices) _editingServices = JSON.parse(JSON.stringify(services()));
   _editingServices.push({name:'New Service', price:0});
-  LS.set('service_list', _editingServices);
+  LS.set('jfm_service_list', _editingServices);
   renderServiceList();
 }
 function removeServiceRow(idx){
   if(!_editingServices) _editingServices = JSON.parse(JSON.stringify(services()));
   _editingServices.splice(idx,1);
-  LS.set('service_list', _editingServices);
+  LS.set('jfm_service_list', _editingServices);
   renderServiceList();
 }
 function saveServiceList(){
-  if(_editingServices){ LS.set('service_list', _editingServices); _editingServices = null; }
+  if(_editingServices){ LS.set('jfm_service_list', _editingServices); _editingServices = null; }
   toast('Service list saved');
 }
 
@@ -1380,7 +1380,7 @@ function loadGcalConfigForm(){
   document.getElementById('gcalProxyKey').value = cfg ? (cfg.key || '') : '';
 }
 function saveGcalConfig(){
-  LS.set('gcal_config', {
+  LS.set('jfm_gcal_config', {
     url: document.getElementById('gcalProxyUrl').value.trim(),
     key: document.getElementById('gcalProxyKey').value.trim()
   });
