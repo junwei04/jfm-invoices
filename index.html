@@ -1093,6 +1093,8 @@ function buildPdfDoc(record){
   }
 
   // ── Signature blocks ──────────────────────────────────────────────────────────
+  const PAGE_H = pdf.internal.pageSize.getHeight();
+  if(y + 130 > PAGE_H - 36){ pdf.addPage(); y = 48; }
   y += 14;
   pdf.setDrawColor(...LINEGREY);
   pdf.setLineWidth(0.75);
