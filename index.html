@@ -864,20 +864,19 @@ function buildPdfDoc(record){
   pdf.line(left, y, right, y);
   y += 20;
 
-  // document title
+  // Row 1 — Document title (left) + meta rows (right), same y band
   pdf.setFont(displayFont(),'bold');
-  pdf.setFontSize(25);
+  pdf.setFontSize(22);
   pdf.setTextColor(...NAVY);
   pdf.text(record.type==='quote' ? 'Quotation' : 'Invoice', left, y);
 
-  // right-aligned doc meta: number / date of issue / due date
-  const metaLabelX = right - 130, metaValX = right;
-  let metaY = y - 6;
+  const metaLabelX = right - 126, metaValX = right;
+  let metaY = y;
   const metaRows = [[record.type==='invoice' ? 'Invoice No.' : 'Quote No.', record.docNumber], ['Date of Issue', record.date]];
   if(record.type==='invoice' && record.dueDate){ metaRows.push(['Due Date', record.dueDate]); }
   metaRows.forEach(([label, value]) => {
     pdf.setFont(bodyFont(),'normal');
-    pdf.setFontSize(8.5);
+    pdf.setFontSize(8);
     pdf.setTextColor(...MUTED);
     pdf.text(label.toUpperCase(), metaLabelX, metaY, {align:'left'});
     pdf.setFont(bodyFont(),'bold');
@@ -887,13 +886,16 @@ function buildPdfDoc(record){
     metaY += 15;
   });
 
-  y += 24;
+  // Advance past whichever is taller: title or meta block
+  y = Math.max(y + 28, metaY) + 16;
 
-  // Billed To
+  // Row 2 — Billed To (left) + Amount Due (right), no overlap
   pdf.setFont(bodyFont(),'bold');
   pdf.setFontSize(8.5);
   pdf.setTextColor(...MUTED);
   pdf.text('BILLED TO', left, y);
+  pdf.text('AMOUNT DUE', right, y, {align:'right'});
+
   let custY = y + 15;
   pdf.setFont(bodyFont(),'bold');
   pdf.setFontSize(11);
@@ -910,15 +912,10 @@ function buildPdfDoc(record){
     custY += lines.length*13;
   }
 
-  // Amount Due callout, right-aligned
-  pdf.setFont(bodyFont(),'bold');
-  pdf.setFontSize(8.5);
-  pdf.setTextColor(...MUTED);
-  pdf.text('AMOUNT DUE', right, y, {align:'right'});
   pdf.setFont(displayFont(),'bold');
-  pdf.setFontSize(24);
+  pdf.setFontSize(22);
   pdf.setTextColor(...GOLD);
-  pdf.text('$'+amountDue.toFixed(2), right, y+26, {align:'right'});
+  pdf.text('$'+amountDue.toFixed(2), right, y + 22, {align:'right'});
 
   y = custY + 14;
 
