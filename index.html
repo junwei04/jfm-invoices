@@ -1149,16 +1149,7 @@ function buildPdfDoc(record){
   pdf.text(sigClientLabel, colMid, y);
   y += 18;
 
-  // Date lines
-  pdf.setDrawColor(...LINEGREY);
-  pdf.line(left, y, left + sigColW, y);
-  pdf.line(colMid, y, colMid + sigColW, y);
-  y += 5;
-  pdf.setFont(bodyFont(),'normal');
-  pdf.setFontSize(7.5);
-  pdf.setTextColor(...MUTED);
-  pdf.text('Date', left, y);
-  pdf.text('Date', colMid, y);
+
 
   return pdf;
 }
