@@ -1,4 +1,4 @@
-const CACHE_NAME = 'jfm-invoice-v13';
+const CACHE_NAME = 'jfm-invoice-v14';
 const ASSETS = [
   './',
   './index.html',
