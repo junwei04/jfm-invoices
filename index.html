@@ -535,8 +535,8 @@ function renderLineItems(){
         onchange="onServiceInput(${idx},this.value)">
       <datalist id="${dlId}">${datalistOpts}</datalist>
       <label>Description (optional)</label>
-      <input value="${item.desc.replace(/"/g,'&quot;')}" placeholder="Details shown below the service on PDF"
-        oninput="lineItems[${idx}].desc=this.value">
+      <textarea rows="3" placeholder="Each line = one bullet point on PDF&#10;e.g.&#10;Supply and install door lock&#10;Labour included"
+        oninput="lineItems[${idx}].desc=this.value" style="min-height:72px;font-size:14px;">${item.desc.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
       <div class="li-grid">
         <div>
           <label>Qty</label>
@@ -964,9 +964,12 @@ function buildPdfDoc(record){
       pdf.setFont(bodyFont(),'normal');
       pdf.setFontSize(9);
       pdf.setTextColor(...MUTED);
-      const dLines = pdf.splitTextToSize(itemDesc, 300);
-      pdf.text(dLines, left, y + rowH);
-      rowH += dLines.length * 12;
+      const bulletLines = itemDesc.split('\n').map(l=>l.trim()).filter(l=>l);
+      bulletLines.forEach(line => {
+        const wrapped = pdf.splitTextToSize('\u2022  ' + line, 292);
+        pdf.text(wrapped, left + 4, y + rowH);
+        rowH += wrapped.length * 12;
+      });
     }
 
     y += rowH + 6;
