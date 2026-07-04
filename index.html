@@ -305,14 +305,6 @@ nav.tabbar .ic{font-size:18px;}
     </div>
   </section>
 
-  <section class="card">
-    <h2>Cloud Sync</h2>
-    <div class="form-group">
-      <p style="font-size:13px;color:var(--ink-soft);margin-bottom:12px;">Sync all invoices and settings to the cloud so your phone and desktop stay in sync.</p>
-      <button class="btn btn-primary" onclick="fbSyncNow()">Upload Everything to Cloud</button>
-      <button class="btn btn-secondary" style="margin-top:8px;" onclick="fbPullNow()">Download from Cloud</button>
-    </div>
-  </section>
 
 </main>
 
@@ -380,15 +372,27 @@ async function fbPull(){
     const r = await fetch(`${FB_BASE}/jfm.json`);
     const data = await r.json();
     if(data && typeof data==='object'){
-      // Firebase has data — pull it into localStorage
       ['documents','biz_info','bank_info','service_list','numbering'].forEach(k=>{
-        if(data[k]!=null) localStorage.setItem('jfm_'+k, JSON.stringify(data[k]));
+        if(data[k]==null) return;
+        if(k==='documents'){
+          // Merge: keep whichever side has more documents
+          const cloud = Array.isArray(data[k]) ? data[k] : [];
+          if(cloud.length===0) return;
+          try{
+            const local = JSON.parse(localStorage.getItem('jfm_'+k)||'[]');
+            if(cloud.length < local.length) return; // local has more, keep it
+          }catch(e){}
+        }
+        localStorage.setItem('jfm_'+k, JSON.stringify(data[k]));
       });
+      renderHistory();
     } else {
-      // Firebase is empty — push whatever is in localStorage up (first-time migration)
+      // Firebase empty — push local data up
       ['documents','biz_info','bank_info','service_list','numbering'].forEach(k=>{
         const v = localStorage.getItem('jfm_'+k);
-        if(v) fetch(`${FB_BASE}/jfm/${k}.json`,{method:'PUT',headers:{'Content-Type':'application/json'},body:v}).catch(()=>{});
+        if(!v) return;
+        if(k==='documents'){ try{ if(JSON.parse(v).length===0) return; }catch(e){} }
+        fetch(`${FB_BASE}/jfm/${k}.json`,{method:'PUT',headers:{'Content-Type':'application/json'},body:v}).catch(()=>{});
       });
     }
   }catch(e){ console.warn('Firebase offline, using local data'); }
@@ -1484,38 +1488,6 @@ function loadGcalConfigForm(){
   document.getElementById('gcalProxyUrl').value = cfg ? (cfg.url || '') : '';
   document.getElementById('gcalProxyKey').value = cfg ? (cfg.key || '') : '';
 }
-async function fbSyncNow(){
-  try{
-    const keys = ['documents','biz_info','bank_info','service_list','numbering'];
-    let uploaded = 0;
-    await Promise.all(keys.map(k=>{
-      const v = localStorage.getItem('jfm_'+k);
-      if(!v) return Promise.resolve();
-      // Never upload an empty documents array
-      if(k==='documents'){
-        try{ const arr=JSON.parse(v); if(!Array.isArray(arr)||arr.length===0) return Promise.resolve(); }catch(e){}
-      }
-      uploaded++;
-      return fetch(`${FB_BASE}/jfm/${k}.json`,{method:'PUT',headers:{'Content-Type':'application/json'},body:v});
-    }));
-    toast(uploaded>0 ? 'Uploaded to cloud successfully' : 'Nothing to upload yet');
-  }catch(e){ toast('Upload failed — check internet connection'); }
-}
-async function fbPullNow(){
-  try{
-    const r = await fetch(`${FB_BASE}/jfm.json`);
-    const data = await r.json();
-    if(data && typeof data==='object'){
-      ['documents','biz_info','bank_info','service_list','numbering'].forEach(k=>{
-        if(data[k]==null) return; // never overwrite local with empty cloud data
-        if(k==='documents' && (!Array.isArray(data[k]) || data[k].length===0)) return;
-        localStorage.setItem('jfm_'+k, JSON.stringify(data[k]));
-      });
-      renderHistory();
-      toast('Downloaded from cloud successfully');
-    } else { toast('Nothing in cloud yet — upload from your other device first'); }
-  }catch(e){ toast('Download failed — check internet connection'); }
-}
 function saveGcalConfig(){
   LS.set('jfm_gcal_config', {
     url: document.getElementById('gcalProxyUrl').value.trim(),
@@ -1550,6 +1522,11 @@ function toast(msg){
   await fbPull();
   resetNewForm();
 })();
+
+// Auto-pull whenever user switches back to this tab/app
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState==='visible') fbPull();
+});
 
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{
