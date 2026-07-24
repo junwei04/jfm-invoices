@@ -231,6 +231,10 @@ nav.tabbar .ic{font-size:18px;}
       </div>
       <label>Notes (optional)</label>
       <textarea id="docNotes" placeholder="e.g. Quote valid for 14 days"></textarea>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-weight:normal;cursor:pointer;">
+        <input type="checkbox" id="docSignoff" checked style="width:auto;margin:0;">
+        <span>Include Acknowledgement &amp; Agreement (sign-off) section</span>
+      </label>
     </div>
 
     <button class="btn btn-primary" onclick="saveDocument()">Save</button>
@@ -681,6 +685,7 @@ function resetNewForm(){
   document.getElementById('custPhone').value='';
   document.getElementById('custAddress').value='';
   document.getElementById('docNotes').value='';
+  document.getElementById('docSignoff').checked = true;
   document.getElementById('docDate').value = todayStr();
   document.getElementById('docDueDate').value = todayStr();
   document.getElementById('docDiscount').value = 0;
@@ -1189,7 +1194,8 @@ function buildPdfDoc(record){
     });
   }
 
-  // ── Signature blocks ──────────────────────────────────────────────────────────
+  // ── Signature blocks (Acknowledgement & Agreement) — optional per document ──
+  if(record.signoff !== false){
   const PAGE_H = pdf.internal.pageSize.getHeight();
   if(y + 130 > PAGE_H - 36){ pdf.addPage(); y = 48; }
   y += 14;
@@ -1243,8 +1249,7 @@ function buildPdfDoc(record){
   pdf.text(senderName, left, y);
   pdf.text(sigClientLabel, colMid, y);
   y += 18;
-
-
+  }
 
   return pdf;
 }
@@ -1266,6 +1271,7 @@ function getCurrentRecordFromForm(){
     },
     items: cleanItems,
     notes: document.getElementById('docNotes').value.trim(),
+    signoff: document.getElementById('docSignoff').checked,
     pendingDepositPct: parseInt(document.getElementById('docPendingDepositPct').value) || 0,
     subtotal: t.subtotal,
     discount: t.discount,
@@ -1411,6 +1417,7 @@ function loadDocument(id){
   document.getElementById('custPhone').value = d.customer.phone;
   document.getElementById('custAddress').value = d.customer.address;
   document.getElementById('docNotes').value = d.notes;
+  document.getElementById('docSignoff').checked = d.signoff !== false;
   document.getElementById('docDiscount').value = d.discount || 0;
   document.getElementById('docDeposit').value = d.deposit || 0;
   document.getElementById('docPendingDepositPct').value = String(d.pendingDepositPct || 0);
@@ -1432,6 +1439,7 @@ function duplicateDocument(id){
   document.getElementById('custPhone').value = d.customer.phone || '';
   document.getElementById('custAddress').value = d.customer.address || '';
   document.getElementById('docNotes').value = d.notes || '';
+  document.getElementById('docSignoff').checked = d.signoff !== false;
   document.getElementById('docDiscount').value = d.discount || 0;
   document.getElementById('docDeposit').value = d.deposit || 0;
   document.getElementById('docPendingDepositPct').value = String(d.pendingDepositPct || 0);
@@ -1456,6 +1464,7 @@ function convertToInvoice(id){
   document.getElementById('custPhone').value = d.customer.phone;
   document.getElementById('custAddress').value = d.customer.address;
   document.getElementById('docNotes').value = d.notes;
+  document.getElementById('docSignoff').checked = d.signoff !== false;
   document.getElementById('docDiscount').value = d.discount || 0;
   document.getElementById('docDeposit').value = 0;
   lineItems = JSON.parse(JSON.stringify(d.items));
