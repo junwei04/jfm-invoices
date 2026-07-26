@@ -384,6 +384,7 @@ const FB_SYNC = {
   'jfm_service_list': 'jfm/service_list',
   'jfm_numbering':    'jfm/numbering',
   'jfm_terms':        'jfm/terms',
+  'jfm_deleted':      'jfm/deleted',
 };
 function fbPush(key, val){
   const path = FB_SYNC[key];
@@ -392,21 +393,46 @@ function fbPush(key, val){
     method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(val)
   }).catch(()=>{});
 }
+// Merge two tombstone/document lists by id, keeping whichever side has the newer timestamp.
+function mergeById(localList, cloudList, tsField){
+  const map = new Map();
+  localList.forEach(item => map.set(item.id, item));
+  cloudList.forEach(item => {
+    const cur = map.get(item.id);
+    if(!cur || (item[tsField]||0) > (cur[tsField]||0)) map.set(item.id, item);
+  });
+  return Array.from(map.values());
+}
 async function fbPull(){
   try{
     const r = await fetch(`${FB_BASE}/jfm.json`);
     const data = await r.json();
     const cloud = (data && typeof data==='object') ? data : {};
+
+    const localTombstones = LS.get('jfm_deleted', []);
+    const cloudTombstones = Array.isArray(cloud.deleted) ? cloud.deleted : [];
+    const mergedTombstones = mergeById(localTombstones, cloudTombstones, 'deletedAt');
+    if(JSON.stringify(mergedTombstones) !== JSON.stringify(localTombstones)){
+      localStorage.setItem('jfm_deleted', JSON.stringify(mergedTombstones));
+    }
+    if(JSON.stringify(mergedTombstones) !== JSON.stringify(cloudTombstones)){
+      fetch(`${FB_BASE}/jfm/deleted.json`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(mergedTombstones)}).catch(()=>{});
+    }
+    const deletedIds = new Set(mergedTombstones.map(t=>t.id));
+
     ['documents','biz_info','bank_info','service_list','numbering','terms'].forEach(k=>{
       const cloudVal = cloud[k];
       const localRaw = localStorage.getItem('jfm_'+k);
       if(k==='documents'){
         const cloudDocs = Array.isArray(cloudVal) ? cloudVal : [];
         const localDocs = localRaw ? (()=>{ try{ return JSON.parse(localRaw); }catch(e){ return []; } })() : [];
-        if(cloudDocs.length > localDocs.length){
-          localStorage.setItem('jfm_'+k, JSON.stringify(cloudDocs));
-        } else if(localDocs.length > 0 && localDocs.length >= cloudDocs.length){
-          fetch(`${FB_BASE}/jfm/${k}.json`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(localDocs)}).catch(()=>{});
+        // Merge per document by id + updatedAt so an edit on one device never gets
+        // silently clobbered by another device's stale copy (array length alone can't
+        // tell an edit from a no-op — same count either way).
+        const merged = mergeById(localDocs, cloudDocs, 'updatedAt').filter(d => !deletedIds.has(d.id));
+        localStorage.setItem('jfm_'+k, JSON.stringify(merged));
+        if(JSON.stringify(merged) !== JSON.stringify(cloudDocs)){
+          fetch(`${FB_BASE}/jfm/${k}.json`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(merged)}).catch(()=>{});
         }
       } else {
         if(cloudVal!=null) localStorage.setItem('jfm_'+k, JSON.stringify(cloudVal));
@@ -741,7 +767,8 @@ function commitSave(asCopy){
     id: (asCopy || !editingId) ? uid() : editingId,
     docNumber,
     status: (asCopy || !existing) ? 'draft' : existing.status,
-    createdAt: (asCopy || !existing) ? todayStr() : (existing.createdAt || todayStr())
+    createdAt: (asCopy || !existing) ? todayStr() : (existing.createdAt || todayStr()),
+    updatedAt: Date.now()
   });
 
   let all = docs();
@@ -1370,6 +1397,9 @@ function deleteDocument(id){
     `${d.docNumber} · ${d.customer.name} — this cannot be undone.`,
     () => {
       saveDocs(docs().filter(x=>x.id!==id));
+      const tombstones = LS.get('jfm_deleted', []);
+      tombstones.push({ id, deletedAt: Date.now() });
+      LS.set('jfm_deleted', tombstones);
       renderHistory();
       toast('Deleted ' + d.docNumber);
     }
