@@ -1347,6 +1347,14 @@ function buildPdfDoc(record){
   pdf.setTextColor(...INK);
   pdf.text(senderName, left, y);
   pdf.text(sigClientName, colMid, y);
+  // also print the client's company beneath their name, if it's a separate value
+  const sigClientCo = (record.customer.company || '').trim();
+  if(sigClientCo && sigClientCo.substring(0,32) !== sigClientName){
+    pdf.setFont(bodyFont(),'normal');
+    pdf.setFontSize(7.5);
+    pdf.setTextColor(...MUTED);
+    pdf.text(sigClientCo.substring(0,40), colMid, y + 11);
+  }
   y += 18;
   }
 
