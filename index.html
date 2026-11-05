@@ -218,6 +218,8 @@ nav.tabbar .ic{font-size:18px;}
       <input id="custName" placeholder="Client name">
       <label>Company (optional)</label>
       <input id="custCompany" placeholder="Company name, if any">
+      <label>Signatory name (optional)</label>
+      <input id="custAttention" placeholder="Person who signs, e.g. Max Chew">
       <label>Phone / Contact</label>
       <input id="custPhone" placeholder="9XXXXXXX">
       <label>Email (optional)</label>
@@ -759,6 +761,7 @@ function resetNewForm(){
   document.getElementById('custCompany').value='';
   document.getElementById('custPhone').value='';
   document.getElementById('custEmail').value='';
+  document.getElementById('custAttention').value='';
   document.getElementById('custAddress').value='';
   document.getElementById('docNotes').value='';
   document.getElementById('docSignoff').checked = true;
@@ -1306,7 +1309,7 @@ function buildPdfDoc(record){
   const sigColW = Math.floor(width / 2) - 18;
   const senderName = biz.displayName || 'J Facilities Management';
   const sigClientLabel = (record.customer.company || record.customer.name || 'Client').substring(0, 32);
-  const sigClientName = (record.customer.name || record.customer.company || 'Client').substring(0, 32);
+  const sigClientName = (record.customer.attention || record.customer.name || record.customer.company || 'Client').substring(0, 32);
 
   // Column headers (sender left, client right)
   pdf.setFont(bodyFont(),'bold');
@@ -1375,6 +1378,7 @@ function getCurrentRecordFromForm(){
       company: document.getElementById('custCompany').value.trim(),
       phone: document.getElementById('custPhone').value.trim(),
       email: document.getElementById('custEmail').value.trim(),
+      attention: document.getElementById('custAttention').value.trim(),
       address: document.getElementById('custAddress').value.trim()
     },
     items: cleanItems,
@@ -1526,6 +1530,7 @@ function loadDocument(id){
   document.getElementById('custName').value = d.customer.name;
   document.getElementById('custCompany').value = d.customer.company || '';
   document.getElementById('custEmail').value = d.customer.email || '';
+  document.getElementById('custAttention').value = d.customer.attention || '';
   document.getElementById('custPhone').value = d.customer.phone;
   document.getElementById('custAddress').value = d.customer.address;
   document.getElementById('docNotes').value = d.notes;
@@ -1549,6 +1554,7 @@ function duplicateDocument(id){
   document.getElementById('custName').value = d.customer.name;
   document.getElementById('custCompany').value = d.customer.company || '';
   document.getElementById('custEmail').value = d.customer.email || '';
+  document.getElementById('custAttention').value = d.customer.attention || '';
   document.getElementById('custPhone').value = d.customer.phone || '';
   document.getElementById('custAddress').value = d.customer.address || '';
   document.getElementById('docNotes').value = d.notes || '';
@@ -1575,6 +1581,7 @@ function convertToInvoice(id){
   document.getElementById('custName').value = d.customer.name;
   document.getElementById('custCompany').value = d.customer.company || '';
   document.getElementById('custEmail').value = d.customer.email || '';
+  document.getElementById('custAttention').value = d.customer.attention || '';
   document.getElementById('custPhone').value = d.customer.phone;
   document.getElementById('custAddress').value = d.customer.address;
   document.getElementById('docNotes').value = d.notes;
