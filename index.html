@@ -1279,8 +1279,10 @@ function buildPdfDoc(record){
     pdf.setTextColor(...MUTED);
     terms().forEach((term) => {
       const lines = pdf.splitTextToSize('•  ' + term, width);
+      const blockH = lines.length*10 + 3;
+      if(y + blockH > pdf.internal.pageSize.getHeight() - 40){ pdf.addPage(); y = 48; }
       pdf.text(lines, left, y);
-      y += lines.length*10 + 3;
+      y += blockH;
     });
   }
 
@@ -1304,6 +1306,7 @@ function buildPdfDoc(record){
   const sigColW = Math.floor(width / 2) - 18;
   const senderName = biz.displayName || 'J Facilities Management';
   const sigClientLabel = (record.customer.company || record.customer.name || 'Client').substring(0, 32);
+  const sigClientName = (record.customer.name || record.customer.company || 'Client').substring(0, 32);
 
   // Column headers (sender left, client right)
   pdf.setFont(bodyFont(),'bold');
@@ -1343,7 +1346,7 @@ function buildPdfDoc(record){
   pdf.setFontSize(8);
   pdf.setTextColor(...INK);
   pdf.text(senderName, left, y);
-  pdf.text(sigClientLabel, colMid, y);
+  pdf.text(sigClientName, colMid, y);
   y += 18;
   }
 
