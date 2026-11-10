@@ -1,4 +1,4 @@
-const CACHE_NAME = 'jfm-invoice-v33';
+const CACHE_NAME = 'jfm-invoice-v34';
 const ASSETS = [
   './',
   './index.html',
@@ -26,14 +26,25 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request).then((response) => {
+  const req = event.request;
+  if (req.method !== 'GET') return;
+  // Network-first for the app page itself, so the newest version always loads when online.
+  if (req.mode === 'navigate' || req.destination === 'document') {
+    event.respondWith(
+      fetch(req).then((response) => {
         const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        caches.open(CACHE_NAME).then((c) => c.put(req, copy));
         return response;
-      }).catch(() => cached);
-    })
+      }).catch(() => caches.match(req).then((c) => c || caches.match('./index.html')))
+    );
+    return;
+  }
+  // Cache-first for static assets (libraries, icons) for speed.
+  event.respondWith(
+    caches.match(req).then((cached) => cached || fetch(req).then((response) => {
+      const copy = response.clone();
+      caches.open(CACHE_NAME).then((c) => c.put(req, copy));
+      return response;
+    }).catch(() => cached))
   );
 });
